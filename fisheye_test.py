@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from sam2.build_sam import build_sam2_video_predictor
 import io
+import re 
+import subprocess
 
 torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
 
@@ -12,9 +14,13 @@ if torch.cuda.get_device_properties(0).major <= 8:
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
 
-sam2_checkpoint = r"D:\Github\segment-anything-2\checkpoints\sam2_hiera_large.pt"
+# sam2_checkpoint = r"D:\Github\segment-anything-2\checkpoints\sam2_hiera_large.pt"
+# sam2_checkpoint = r"D:\Github\segment-anything-2\checkpoints\sam2_hiera_base_plus.pt"
+sam2_checkpoint = r"D:\Github\segment-anything-2\checkpoints\sam2_hiera_tiny.pt"
 
-model_cfg = "sam2_hiera_l.yaml"
+# model_cfg = "sam2_hiera_l.yaml"
+# model_cfg = "sam2_hiera_b+.yaml"
+model_cfg = "sam2_hiera_t.yaml"
 
 predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint)
 
@@ -26,7 +32,7 @@ def show_mask(mask, ax, obj_id = None, random_color = False):
         cmap = plt.get_cmap("tab10")
         cmap_idx = 0 if obj_id is None else obj_id
         color = np.array([*cmap(cmap_idx)[:3],0.6])
-    h, w = mask.shape [ -2:0]
+    h, w = mask.shape [-2:]
     mask_image = mask.reshape(h,w,1)* color.reshape(1,1,-1)
     ax.imshow(mask_image)
 
@@ -38,7 +44,34 @@ def show_points(coords, labels, ax, marker_size=200):
     ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', alpha=0.5, s=marker_size, edgecolor='white', linewidth=1.25)
 
 
+# Define the video file path and output directory
+video_path = r"E:\CSTEPS\Spring_2019\GroupVideos_Fisheye\mp4\012819_CSTEPS2_AD1_TA.mp4"
 video_dir = r"E:\CSTEPS\Spring_2019\GroupVideos_Fisheye\TrackingVideo\012819_CSTEPS2_AD1_TA"
+
+# # Create the output directory if it doesn't exist
+# if not os.path.exists(video_dir):
+#     os.makedirs(video_dir)
+
+# # FFmpeg command to extract images with zero-padded filenames (e.g., 00001.jpg)
+# ffmpeg_command = [
+#     'ffmpeg',
+#     '-i', video_path,
+#     '-t', '00:02:00',          # Extract frames from the first 2 minutes
+#     '-vf', 'fps=9',            # Set the frame rate to 9 fps (source fps)
+#     '-q:v', '2',               # High quality for JPG output
+#     os.path.join(video_dir, '%05d.jpg')  # Output filename pattern with zero padding
+# ]
+
+# # Run the FFmpeg command using subprocess
+# try:
+#     subprocess.run(ffmpeg_command, check=True)
+#     print(f"Images extracted and saved in {video_dir}")
+# except subprocess.CalledProcessError as e:
+#     print(f"An error occurred: {e}")
+
+# print("Press Enter to continue...")
+# input()
+# print("Continuing...")
 
 #scan all the jpg frame names in this directory
 
@@ -49,14 +82,14 @@ frame_names = [
 frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
 
 frame_idx = 0
-plt.figure(figsize=(12,8))
-plt.title(f"Frame {frame_idx}")
-plt.imshow(Image.open(os.path.join(video_dir, frame_names[frame_idx])))
-plt.show()
+# plt.figure(figsize=(12,8))
+# plt.title(f"Frame {frame_idx}")
+# plt.imshow(Image.open(os.path.join(video_dir, frame_names[frame_idx])))
+# plt.show()
 
-print("Press Enter to continue...")
-input()
-print("Continuing...")
+# print("Press Enter to continue...")
+# input()
+# print("Continuing...")
 
 inference_state = predictor.init_state(video_path=video_dir)
 predictor.reset_state(inference_state)
@@ -64,7 +97,7 @@ predictor.reset_state(inference_state)
 ann_frame_idx = 0 # the frame index we interact with
 ann_obj_id = 1 # give a unique id to each object we interact with(it can be any integer)
 
-points = np.array([[914,2930],[916,2925]], dtype=np.float32)
+points = np.array([[985,115],[1029,275]], dtype=np.float32)
 
 # for labels, "1" means positive click, "0" means negative click
 
@@ -79,7 +112,7 @@ _, out_obj_ids, out_mask_logits = predictor.add_new_points(
 
 # show the results on the current (interacted) frame
 plt.figure(figsize=(12,8))
-plt.title(f"Frame {ann_frame_idx}")
+plt.title(f"frame {ann_frame_idx}")
 plt.imshow(Image.open(os.path.join(video_dir, frame_names[ann_frame_idx])))
 show_points(points, labels, plt.gca())
 show_mask((out_mask_logits[0] > 0.0).cpu().numpy(), plt.gca(), obj_id=out_obj_ids[0])
