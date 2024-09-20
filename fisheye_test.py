@@ -7,6 +7,7 @@ from sam2.build_sam import build_sam2_video_predictor
 import io
 import re 
 import subprocess
+import csv
 
 torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
 
@@ -110,38 +111,73 @@ _, out_obj_ids, out_mask_logits = predictor.add_new_points(
     labels=labels,
 )
 
-# show the results on the current (interacted) frame
-plt.figure(figsize=(12,8))
-plt.title(f"frame {ann_frame_idx}")
-plt.imshow(Image.open(os.path.join(video_dir, frame_names[ann_frame_idx])))
-show_points(points, labels, plt.gca())
-show_mask((out_mask_logits[0] > 0.0).cpu().numpy(), plt.gca(), obj_id=out_obj_ids[0])
-plt.show()
+# # show the results on the current (interacted) frame
+# plt.figure(figsize=(12,8))
+# plt.title(f"frame {ann_frame_idx}")
+# plt.imshow(Image.open(os.path.join(video_dir, frame_names[ann_frame_idx])))
+# show_points(points, labels, plt.gca())
+# show_mask((out_mask_logits[0] > 0.0).cpu().numpy(), plt.gca(), obj_id=out_obj_ids[0])
+# plt.show()
 
-print("Press Enter to continue...")
-input()
-print("Continuing...")
+# print("Press Enter to continue...")
+# input()
+# print("Continuing...")
 
 # run propagation throughout the video and collect the results in a dictionary
 video_segments = {}
-for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
-    video_segments[out_frame_idx] = {
-        out_obj_id:(out_mask_logits[i] > 0.0).cpu().numpy()
-        for i, out_obj_id in enumerate(out_obj_ids)
-    }
 
-# render the segmentation results every few frames
-vis_frame_stride = 1
-plt.close("all")
+# TODO: need to fix this
 
-# define the figure outside of the loop
-fig = plt.figure(figsize=(6,4))
-for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
-    plt.title(f"Frame {out_frame_idx}")
-    im=plt.imshow(Image.open(os.path.join(video_dir, frame_names[out_frame_idx])), animated=True)
-    for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-        show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
+with open('output.csv', 'w', newline='') as csvfile:
+    fieldnames = ['frame_idx', 'tracked', 'x_min', 'y_min', 'x_max', 'y_max']
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+    writer.writeheader()
+    for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+            mask = (out_mask_logits[0] > 0.0).cpu().numpy()
+            if np.any(mask):
+                # Calculate bounding box coordinates
+                rows = np.any(mask, axis=1)
+                cols = np.any(mask, axis=0)
+                rmin, rmax = np.where(rows)[0][[0, -1]]
+                cmin, cmax = np.where(cols)[0][[0, -1]]
+
+                writer.writerow({
+                    'frame_idx': out_frame_idx,
+                    'tracked': 1,
+                    'x_min': cmin,
+                    'y_min': rmin,
+                    'x_max': cmax,
+                    'y_max': rmax,
+                })
+            else:
+                writer.writerow({
+                    'frame_idx': out_frame_idx,
+                    'tracked': 0,
+                    'x_min': None,
+                    'y_min': None,
+                    'x_max': None,
+                    'y_max': None,
+                })
+
+# for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+#     video_segments[out_frame_idx] = {
+#         out_obj_id:(out_mask_logits[i] > 0.0).cpu().numpy()
+#         for i, out_obj_id in enumerate(out_obj_ids)
+#     }
+
+# # render the segmentation results every few frames
+# vis_frame_stride = 1
+# plt.close("all")
+
+# # define the figure outside of the loop
+# fig = plt.figure(figsize=(6,4))
+# for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
+#     plt.title(f"Frame {out_frame_idx}")
+#     im=plt.imshow(Image.open(os.path.join(video_dir, frame_names[out_frame_idx])), animated=True)
+#     for out_obj_id, out_mask in video_segments[out_frame_idx].items():
+#         show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
     
-    plt.savefig(f'E:/CSTEPS/Spring_2019/GroupVideos_Fisheye/TrackingVideo/012819_CSTEPS2_AD1_TA_output/s{out_frame_idx}.png')
+#     plt.savefig(f'E:/CSTEPS/Spring_2019/GroupVideos_Fisheye/TrackingVideo/012819_CSTEPS2_AD1_TA_output/s{out_frame_idx}.png')
 
 
