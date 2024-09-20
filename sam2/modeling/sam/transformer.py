@@ -24,6 +24,10 @@ OLD_GPU, USE_FLASH_ATTN, MATH_KERNEL_ON = get_sdpa_settings()
 # A fallback setting to allow all available kernels if Flash Attention fails
 ALLOW_ALL_KERNELS = False
 
+# USE_FLASH_ATTN = False
+# MATH_KERNEL_ON = True
+# OLD_GPU = True
+
 
 def sdp_kernel_context(dropout_p):
     """
