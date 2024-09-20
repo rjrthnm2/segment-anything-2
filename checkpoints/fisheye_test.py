@@ -1,6 +1,6 @@
 import os
 import torch
-import numpy as py
+import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 from sam2.build_sam import build_sam2_video_predictor
@@ -109,6 +109,6 @@ for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
     for out_obj_id, out_mask in video_segments[out_frame_idx].items():
         show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
     
-    plt.savefig(f'output/s{out_frame_idx}.png')
-    
+    plt.savefig(f'E:/CSTEPS/Spring_2019/GroupVideos_Fisheye/TrackingVideo/012819_CSTEPS2_AD1_TA_output/s{out_frame_idx}.png')
+
 
